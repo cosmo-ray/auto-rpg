@@ -1,0 +1,126 @@
+[
+    [
+	{
+	    "gender": "male",
+	    "name": "guard",
+	    "life": 10,
+	    "max_life": 10,
+	    "type": "tanned",
+	    "stats": {
+		"strength": 3,
+		"charm": 1,
+		"agility": 3
+	    },
+	    "weapon": {
+		"power": 3,
+		"name": "longsword",
+		"range": 0,
+		"maniability": 2
+	    },
+	    "armor": {
+		"heavy": 1,
+		"protect": 3
+	    },
+	    "clothes": [
+		"feet/boots/male/brown.png",
+		"legs/armor/male/12.png",
+		"torso/leather/chest_male.png",
+		"weapons/oversize/right hand/male/longsword-universal.png",
+		"head/hoods/male/cloth_hood_male.png"
+	    ]
+	}, null, null, null,
+    	{
+	    "gender": "male",
+	    "name": "guard",
+	    "life": 10,
+	    "max_life": 10,
+	    "type": "tanned",
+	    "stats": {
+		"strength": 3,
+		"charm": 3,
+		"agility": 4
+	    },
+	    "weapon": {
+		"power": 2,
+		"name": "bow",
+		"range": -1,
+		"maniability": 4
+	    },
+	    "armor": {
+		"heavy": 1,
+		"protect": 3
+	    },
+	    "usable_items": {
+		"healing herb": 3
+	    },
+	    "clothes": [
+		"feet/boots/male/brown.png",
+		"legs/armor/male/12.png",
+		"torso/leather/chest_male.png",
+		"weapons/oversize/right hand/male/longsword-universal.png",
+		"head/hoods/male/cloth_hood_male.png"
+	    ]
+	},
+	{
+	    "gender": "male",
+	    "name": "guard",
+	    "life": 10,
+	    "max_life": 10,
+	    "type": "tanned",
+	    "usable_items": {
+		"trowing spear": 3,
+	    },
+	    "stats": {
+		"strength": 3,
+		"charm": 3,
+		"agility": 4
+	    },
+	    "armor": {
+		"heavy": 1,
+		"protect": 3
+	    },
+	    "weapon": {
+		"power": 2,
+		"range": 1,
+		"name": "spear",
+		"maniability": 2
+	    },
+	    "clothes": [
+		"feet/boots/male/brown.png",
+		"legs/armor/male/12.png",
+		"torso/leather/chest_male.png",
+		"weapons/oversize/right hand/male/longsword-universal.png",
+		"head/hoods/male/cloth_hood_male.png"
+	    ]
+
+	}
+
+    ],
+    [
+	{
+	    "gender": "male",
+	    "name": "guard",
+	    "life": 23,
+	    "max_life": 23,
+	    "type": "orcs/4",
+	    "stats": {
+		"strength": 5,
+		"charm": 0,
+		"agility": 2
+	    },
+	    "armor": {
+		"heavy": 0,
+		"protect": 1
+	    },
+	    "weapon": {
+		"power": 3,
+		"name": "longsword",
+		"range": 0,
+		"maniability": 2
+	    },
+	    "clothes": [
+		"torso/leather/chest_male.png"
+	    ]
+	}
+    ]
+]
