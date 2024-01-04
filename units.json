@@ -57,7 +57,7 @@
 		"feet/boots/male/brown.png",
 		"legs/armor/male/12.png",
 		"torso/leather/chest_male.png",
-		"weapons/oversize/right hand/male/longsword-universal.png",
+		"weapons/both hand/spear.png",
 		"head/hoods/male/cloth_hood_male.png"
 	    ]
 	},
@@ -89,7 +89,7 @@
 		"feet/boots/male/brown.png",
 		"legs/armor/male/12.png",
 		"torso/leather/chest_male.png",
-		"weapons/oversize/right hand/male/longsword-universal.png",
+		"weapons/right hand/either/7.png",
 		"head/hoods/male/cloth_hood_male.png"
 	    ]
 
@@ -99,7 +99,7 @@
     [
 	{
 	    "gender": "male",
-	    "name": "guard",
+	    "name": "sword orc",
 	    "life": 23,
 	    "max_life": 23,
 	    "type": "orcs/4",
