@@ -21,11 +21,12 @@
 		"heavy": 1,
 		"protect": 3
 	    },
+	    "sprite_weapon": "oversize/right hand/male/longsword-universal.png",
+	    "oversize_weapon": "right hand/male/longsword-attack.png",
 	    "clothes": [
 		"feet/boots/male/brown.png",
 		"legs/armor/male/12.png",
 		"torso/leather/chest_male.png",
-		"weapons/oversize/right hand/male/longsword-universal.png",
 		"head/hoods/male/cloth_hood_male.png"
 	    ]
 	}, null, null, null,
@@ -53,11 +54,11 @@
 	    "usable_items": {
 		"healing herb": 3
 	    },
+	    "sprite_weapon": "right hand/either/bow.png",
 	    "clothes": [
 		"feet/boots/male/brown.png",
 		"legs/armor/male/12.png",
 		"torso/leather/chest_male.png",
-		"weapons/both hand/spear.png",
 		"head/hoods/male/cloth_hood_male.png"
 	    ]
 	},
@@ -85,11 +86,11 @@
 		"name": "spear",
 		"maniability": 2
 	    },
+	    "sprite_weapon": "both hand/spear.png",
 	    "clothes": [
 		"feet/boots/male/brown.png",
 		"legs/armor/male/12.png",
 		"torso/leather/chest_male.png",
-		"weapons/right hand/either/7.png",
 		"head/hoods/male/cloth_hood_male.png"
 	    ]
 

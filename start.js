@@ -1,6 +1,6 @@
 
-const good_orig_pos = [1, 1]
-const bad_orig_pos = [1, 3]
+const good_orig_pos = [0, 9]
+const bad_orig_pos = [0, 11]
 
 const weapons = {
     "longsword": {
@@ -37,7 +37,7 @@ const arc_shoot_len = 13
 
 let turn_countdown = 0
 let attacker = []
-let atk_time = 4000000
+let atk_time = 1000000
 let atk_cooldown = 100000
 
 function jrpg_auto_action(wid, eve)
@@ -52,16 +52,18 @@ function jrpg_auto_action(wid, eve)
 	    let h = wid.get("handlers").get(a[0]).get(a[1])
 	    let w = all_units.get(a[0]).get(a[1]).get("weapon")
 	    let w_info = weapons[yeGetStringAt(w, "name")]
-	    print("attacker:", a)
-	    //yePrint(w)
-	    yePrint(h)
+	    yePrint(w)
+	    //yePrint(h)
 	    if (a[2] > atk_time) {
-		ylpcsHandlerSetOrigXY(h, 1, good_orig_pos[1] + (2 * a[0]))
+		ylpcsHandlerSetOrigXY(h, good_orig_pos[0], good_orig_pos[1] + (2 * a[0]))
+		h.setAt("set_oversized_weapon", 0)
 	    } else {
 		ylpcsHandlerSetOrigXY(h,
 				      Math.abs(a[2] * w_info["len"] / atk_time),
 				      w_info["pos"] + (2 * a[0])
 				     )
+		h.setAt("oversize_weapon_y", 1  + (2 * a[0]))
+		h.setAt("set_oversized_weapon", 1)
 	    }
 	    ylpcsHandlerRefresh(h)
 	    a[2] += turn_timer
@@ -115,7 +117,6 @@ function jrpg_auto_init(wid, map_str)
     const window_width = ywRectW(wid_size);
     const window_height = ywRectH(wid_size);
 
-    yePrint(units)
     let good_guy = yeGet(units, 0)
     let bad_guy = yeGet(units, 1)
     let good_handlers = yeCreateArray(wid, "good handler")
@@ -127,13 +128,12 @@ function jrpg_auto_init(wid, map_str)
     const good_x_threshold = 40
     const bad_x_threshold = 100
 
-    yePrint(good_guy)
     for (let i = 0; i < 3; ++i) {
 	let guy = yeGet(good_guy, i)
 
 	if (guy) {
 	    yeConvert(guy, YHASH)
-	    guy.setAt(0, "atk-load")
+	    guy.setAt("atk-load", 70)
 	    let guy_h = ylpcsCreateHandler(guy, wid)
 	    ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
@@ -148,7 +148,7 @@ function jrpg_auto_init(wid, map_str)
 
 	if (guy) {
 	    yeConvert(guy, YHASH)
-	    guy.setAt(0, "atk-load")
+	    guy.setAt("atk-load", 70)
 	    let guy_h = ylpcsCreateHandler(guy, wid)
 	    ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
@@ -163,7 +163,7 @@ function jrpg_auto_init(wid, map_str)
 
 	if (guy) {
 	    yeConvert(guy, YHASH)
-	    guy.setAt(0, "atk-load")
+	    guy.setAt("atk-load", 70)
 	    let guy_h = ylpcsCreateHandler(guy, wid)
 	    ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
@@ -178,7 +178,7 @@ function jrpg_auto_init(wid, map_str)
 
 	if (guy) {
 	    yeConvert(guy, YHASH)
-	    guy.set_at(0, "atk-load")
+	    guy.setAt("atk-load", 70)
 	    let guy_h = ylpcsCreateHandler(guy, wid)
 	    ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
