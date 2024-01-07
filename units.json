@@ -119,6 +119,8 @@
 		"range": 0,
 		"maniability": 2
 	    },
+	    "sprite_weapon": "oversize/right hand/male/longsword-universal.png",
+	    "oversize_weapon": "right hand/male/longsword-attack.png",
 	    "clothes": [
 		"torso/leather/chest_male.png"
 	    ]

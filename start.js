@@ -16,18 +16,6 @@ const weapons = {
 	"pos": 5
     }
 }
-const good_sword_swing = 13
-const bad_sword_swing = 15
-const sword_swing_len = 6
-
-const good_spear_thrust = 5
-const bad_spear_thrust = 7
-const spear_thrust_len = 8
-
-const good_arc_shoot = 17
-const bad_arc_shoot = 19
-const arc_shoot_len = 13
-
 
 /*
  * attack positions:
@@ -40,10 +28,61 @@ let attacker = []
 let atk_time = 1000000
 let atk_cooldown = 100000
 
+function add_message(wid, msg)
+{
+    let msgs = wid.get("msgs");
+    const wid_size = wid.get("wid-pix");
+
+    if (!msgs) {
+	msgs = yeCreateArray(wid, "msgs")
+	ywCanvasNewRectangleExt(wid, 5, 5, wid_size.geti("w") - 10, 150,
+				"rgba: 127 127 127 155", 3)
+	ywCanvasNewRectangleExt(wid, 5, 5, wid_size.geti("w") - 10, 150,
+				"rgba: 0 0 0 255", 2)
+    }
+    let txt = ywCanvasNewTextByStr(wid, 25, 15, msg)
+
+    msgs.forEach(function (msg, i) {
+	if (i < 4) {
+	    ywCanvasMoveObjXY(msg, 0, 20);
+	} else {
+	    ywCanvasRemoveObj(wid, msg);
+	    msgs.remove(i)
+	}
+    })
+    yePushFront(msgs, txt);
+}
+
+function print_bar(wid, x, y, percent, color)
+{
+    print("print bar", x, y, percent)
+    let bars = yeTryCreateArray(wid, "bars");
+
+    let over_bar = ywCanvasNewRectangleExt(wid, x, y, 80, 12, "rgba: 220 220 220 255", 2)
+    let percent_bar = ywCanvasNewRectangle(wid, x + 5, y + 2, 70 * percent / 100, 8, color)
+    yePushBack(bars, over_bar)
+    yePushBack(bars, percent_bar)
+}
+
+function remove_bars(wid)
+{
+    let bars = wid.get("bars")
+
+    if (bars) {
+	bars.forEach(function (b, _) {
+	    ywCanvasRemoveObj(wid, b);
+	})
+	bars.clear();
+    }
+}
+
+let atk_cnt = 0
+
 function jrpg_auto_action(wid, eve)
 {
     let all_units = yeGet(wid, "units")
     let turn_timer = ywidGetTurnTimer()
+    const handler_h = ygGet("lpcs.y_threshold").toInt()
 
     if (attacker.length > 0) {
 	attacker = attacker.filter(function (a) {return a[2] < (atk_time + atk_cooldown)})
@@ -52,6 +91,7 @@ function jrpg_auto_action(wid, eve)
 	    let h = wid.get("handlers").get(a[0]).get(a[1])
 	    let w = all_units.get(a[0]).get(a[1]).get("weapon")
 	    let w_info = weapons[yeGetStringAt(w, "name")]
+
 	    yePrint(w)
 	    //yePrint(h)
 	    if (a[2] > atk_time) {
@@ -73,8 +113,9 @@ function jrpg_auto_action(wid, eve)
 
     turn_countdown += turn_timer
 
-    if (turn_countdown > 400000) {
+    if (turn_countdown > 100000) {
 	turn_countdown = 0
+	remove_bars(wid)
 	all_units.forEach(function (units, i) {
 	    units.forEach(function (u, j) {
 		yePrint(u.get("name"))
@@ -83,15 +124,34 @@ function jrpg_auto_action(wid, eve)
 		print("agy:", u.get("stats").geti("agility"))
 		print("heady:", u.get("armor")?.geti("heavy"))
 		print("maniability:", u.get("weapon").geti("maniability"))
-		let to_add = 10 + u.get("stats").geti("agility") -
+		let to_add = 4 + u.get("stats").geti("agility") -
 		    u.get("weapon").geti("maniability") -
 		    u.get("armor")?.geti("heavy")
 		if (to_add < 1)
 		    to_add = 1
 		u.addAt("atk-load", to_add)
+
+		print("get handler")
+		let h = wid.get("handlers").get(i).get(j)
+		print("handler pos")
+		let h_pos = ylpcsHandePos(h)
+		print("before print bar")
+
+		print_bar(wid, h_pos.geti("x"),
+			  h_pos.geti("y") + handler_h,
+			  u.geti("atk-load"),
+			  "rgba: 120 120 120 255")
+
+		print_bar(wid, h_pos.geti("x"),
+			  h_pos.geti("y"),
+			  u.geti("life") * 100 / u.geti("max_life"),
+			  "rgba: 230 100 100 255")
+
 		if (u.geti("atk-load") >= 100) {
 		    u.addAt("atk-load", -100)
 		    attacker.push([i, j, 0])
+		    add_message(wid, "attack " + atk_cnt)
+		    ++atk_cnt;
 		}
 		yePrint(u.get("atk-load"))
 	    })
@@ -113,6 +173,11 @@ function jrpg_auto_init(wid, map_str)
 	yePush(wid, units, "units")
     }
     let ret = ywidNewWidget(wid, "canvas")
+    add_message(wid, "Battle start !")
+    add_message(wid, "Battle start ! 2")
+    add_message(wid, "Battle start ! 3")
+    add_message(wid, "Battle start ! 3")
+
     const wid_size = yeGet(wid, "wid-pix");
     const window_width = ywRectW(wid_size);
     const window_height = ywRectH(wid_size);
@@ -126,7 +191,7 @@ function jrpg_auto_init(wid, map_str)
     yePushBack(handlers, bad_handlers)
 
     const good_x_threshold = 40
-    const bad_x_threshold = 100
+    const bad_x_threshold = 160
 
     for (let i = 0; i < 3; ++i) {
 	let guy = yeGet(good_guy, i)
@@ -138,7 +203,7 @@ function jrpg_auto_init(wid, map_str)
 	    ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
 	    ylpcsHandlerSetPosXY(guy_h, window_width / 2 + good_x_threshold,
-				 window_height / 3 + 70 * i)
+				 window_height / 3 + 110 * i)
 	    yePushAt2(good_handlers, guy_h, i)
 	}
     }
@@ -153,7 +218,7 @@ function jrpg_auto_init(wid, map_str)
 	    ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
 	    ylpcsHandlerSetPosXY(guy_h, window_width / 2 + good_x_threshold + 100,
-				 window_height / 3 + 70 * i)
+				 window_height / 3 + 110 * i)
 	    yePushAt2(good_handlers, guy_h, i + 3)
 	}
     }
@@ -168,7 +233,7 @@ function jrpg_auto_init(wid, map_str)
 	    ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
 	    ylpcsHandlerSetPosXY(guy_h, bad_x_threshold,
-				 window_height / 3 + 70 * i)
+				 window_height / 3 + 110 * i)
 	    yePushAt2(bad_handlers, guy_h, i)
 	}
     }
@@ -183,7 +248,7 @@ function jrpg_auto_init(wid, map_str)
 	    ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
 	    ylpcsHandlerRefresh(guy_h)
 	    ylpcsHandlerSetPosXY(guy_h, bad_x_threshold + 100,
-				 window_height / 3 + 70 * i)
+				 window_height / 3 + 110 * i)
 	    yePushAt2(bad_handlers, guy_h, i + 3)
 	}
     }
