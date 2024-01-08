@@ -124,6 +124,34 @@
 	    "clothes": [
 		"torso/leather/chest_male.png"
 	    ]
+	}, null, null, null,
+	{
+	    "gender": "male",
+	    "name": "sword orc",
+	    "life": 23,
+	    "max_life": 23,
+	    "type": "orcs/4",
+	    "stats": {
+		"strength": 5,
+		"charm": 0,
+		"agility": 2
+	    },
+	    "armor": {
+		"heavy": 0,
+		"protect": 1
+	    },
+	    "weapon": {
+		"power": 3,
+		"name": "longsword",
+		"range": 0,
+		"maniability": 2
+	    },
+	    "sprite_weapon": "oversize/right hand/male/longsword-universal.png",
+	    "oversize_weapon": "right hand/male/longsword-attack.png",
+	    "clothes": [
+		"torso/leather/chest_male.png"
+	    ]
 	}
+
     ]
 ]
