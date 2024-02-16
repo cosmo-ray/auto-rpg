@@ -82,14 +82,12 @@ const RIGHT = 0
 
 function move_guy(wid, i, j, to, where)
 {
-    print("mv in")
     let units = wid.get("units").get(i)
     let handlers = wid.get("handlers").get(i)
     let u = units.get(j)
     let h = handlers.get(j)
     let x_add = 0
     let y_add = 0
-    print("mv in 10")
 
     if (where == FRONT) {
 	str_where = "front row"
@@ -101,7 +99,6 @@ function move_guy(wid, i, j, to, where)
 	y_add = 100
 	str_where = "right side"
     }
-    print("mv in 20", h)
     yePushAt2(units, u, to)
     yePushAt2(handlers, h, to)
     ylpcsHandlerMoveXY(h, x_add, y_add)
@@ -109,7 +106,6 @@ function move_guy(wid, i, j, to, where)
     units.rm(j)
     handlers.rm(j)
     add_message(wid, "move " + yeGetString(u.get("name")) + " to " + str_where)
-    print("mv out")
 }
 
 function find_enemy(units, i, j, weapon)
@@ -121,7 +117,6 @@ function find_enemy(units, i, j, weapon)
 	other_guy_i = 1
 
     let u = units.get(i).get(j)
-    print(yeGetStringAt(u, "name"), " find e")
     let other_guys = units.get(other_guy_i);
     if (range == -1) {
 	for (let idx = 0; idx < 5; ++idx) {
@@ -169,24 +164,12 @@ function jrpg_auto_action(wid, eve)
     const handler_h = ygGet("lpcs.y_threshold").toInt()
 
     if (all_units.get(1).len() == 0) {
-	print("WIN\n");
+	print("battle WIN\n");
 	ygCallFuncOrQuit(wid, "win");
     } else if (all_units.get(0).len() == 0) {
-	print("LOSE\n");
+	print("battle LOSE\n");
 	ygCallFuncOrQuit(wid, "lose");
     }
-
-    for (let i = 0; i < 2; ++i)
-	if (!all_units.get(i).get(0) &&
-	    !all_units.get(i).get(1) &&
-	    !all_units.get(i).get(2)) {
-	    if (all_units.get(i).get(3))
-		move_guy(wid, i, 3, 0, FRONT)
-	    if (all_units.get(i).get(4))
-		move_guy(wid, i, 4, 1, FRONT)
-	    if (all_units.get(i).get(5))
-		move_guy(wid, i, 5, 2, FRONT)
-	}
 
     if (attacker.length > 0) {
 	attacker = attacker.filter(function (a) {return a[2] < (atk_time + atk_cooldown)})
@@ -194,6 +177,10 @@ function jrpg_auto_action(wid, eve)
 	for (a of attacker) {
 	    let h = wid.get("handlers").get(a[0]).get(a[1])
 	    if (!h) {
+		if (a[4]) {
+		    ywCanvasRemoveObj(wid, a[4]);
+		    a[4] = null;
+		}
 		a[2] += 1000000
 		continue;
 	    }
@@ -204,8 +191,10 @@ function jrpg_auto_action(wid, eve)
 	    if (a[2] > atk_time) {
 		ylpcsHandlerSetOrigXY(h, good_orig_pos[0], good_orig_pos[1] + (2 * a[0]))
 		h.setAt("set_oversized_weapon", 0)
-		if (a[4])
+		if (a[4]) {
 		    ywCanvasRemoveObj(wid, a[4]);
+		    a[4] = null;
+		}
 	    } else {
 		ylpcsHandlerSetOrigXY(h,
 				      Math.abs(a[2] * w_info["len"] / atk_time),
@@ -237,20 +226,30 @@ function jrpg_auto_action(wid, eve)
 		    h_pos.geti(0) + 20, h_pos.geti(1) + 40,
 		    h_pos.geti(0) + 40, h_pos.geti(1) + 50,
 		    "rgba: 255 50 50 190", 1);
-		print("check dead here")
 		if (attacked.geti("life") < 0) {
 		    all_units.get(a[3][0]).rm(a[3][1])
 		    ylpcsRemoveCanvas(attacked_h)
 		    ywCanvasRemoveObj(wid, a[4])
+		    a[4] = null;
 		    wid.get("handlers").get(a[3][0]).rm(a[3][1])
-		    print("can:")
-		    yePrint(wid.get("handlers").get(a[3][0]).get(a[3][1]))
 		}
 	    }
 	    a[2] += turn_timer
 	}
 	return
     }
+    for (let i = 0; i < 2; ++i)
+	if (!all_units.get(i).get(0) &&
+	    !all_units.get(i).get(1) &&
+	    !all_units.get(i).get(2)) {
+	    if (all_units.get(i).get(3))
+		move_guy(wid, i, 3, 0, FRONT)
+	    if (all_units.get(i).get(4))
+		move_guy(wid, i, 4, 1, FRONT)
+	    if (all_units.get(i).get(5))
+		move_guy(wid, i, 5, 2, FRONT)
+	}
+
 
     turn_countdown += turn_timer
 
@@ -272,14 +271,10 @@ function jrpg_auto_action(wid, eve)
 		let h = wid.get("handlers").get(i).get(j)
 		let h_pos = ylpcsHandePos(h)
 
-		print(yeGetStringAt(u, "name"), " in")
 		if (u.geti("atk-load") >= 100) {
 		    let enemy = find_enemy(all_units, i, j, weapon)
 		    if (enemy) {
 			attacker.push([i, j, 0, enemy])
-			print("attacker: ", attacker[attacker.length - 1])
-			print("attacker[3]: ", attacker[attacker.length - 1][3])
-			add_message(wid, "attack " + atk_cnt + " enemy pos: " + enemy)
 			++atk_cnt;
 		    } else {
 			print("ELSE !", j, !units.get(j - 3))
@@ -303,7 +298,6 @@ function jrpg_auto_action(wid, eve)
 		print_bar(wid, h_pos.geti("x"), h_pos.geti("y"),
 			  u.geti("life") * 100 / u.geti("max_life"),
 			  "rgba: 230 100 100 255")
-		print(yeGetStringAt(u, "name"), " out")
 
 		//yePrint(u.get("atk-load"))
 	    })
