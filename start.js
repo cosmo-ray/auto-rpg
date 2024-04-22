@@ -256,8 +256,8 @@ function jrpg_auto_action(wid, eve)
     if (turn_countdown > 100000) {
 	turn_countdown = 0
 	remove_bars(wid)
-	all_units.forEach(function (units, i) {
-	    units.forEach(function (u, j) {
+	all_units.forEachNonNull(function (units, i) {
+	    units.forEachNonNull(function (u, j) {
 		let weapon = u.get("weapon")
 		let armor = u.get("armor")
 		let stats = u.get("stats")
