@@ -14,6 +14,22 @@ const weapons = {
     "spear": {
 	"len": 8,
 	"pos": 5
+    },
+    "iron longsword": {
+	"len": 6,
+	"pos": 13
+    },
+    "steel longsword": {
+	"len": 6,
+	"pos": 13
+    },
+    "iron spear": {
+	"len": 8,
+	"pos": 5
+    },
+    "steel spear": {
+	"len": 8,
+	"pos": 5
     }
 }
 
