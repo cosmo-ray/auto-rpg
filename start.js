@@ -52,9 +52,9 @@ function add_message(wid, msg)
 
     if (!msgs) {
 	msgs = yeCreateArray(wid, "msgs")
-	ywCanvasNewRectangleExt(wid, 5, 5, wid_size.geti("w") - 10, 150,
+	ywCanvasNewRectangleExt(wid, 5, 5, wid_size.geti("w") - 10, 130,
 				"rgba: 127 127 127 155", 3)
-	ywCanvasNewRectangleExt(wid, 5, 5, wid_size.geti("w") - 10, 150,
+	ywCanvasNewRectangleExt(wid, 5, 5, wid_size.geti("w") - 10, 130,
 				"rgba: 0 0 0 255", 2)
     }
     let txt = ywCanvasNewTextByStr(wid, 25, 15, msg)
@@ -242,8 +242,20 @@ function jrpg_auto_action(wid, eve)
 		    h_pos.geti(0) + 20, h_pos.geti(1) + 40,
 		    h_pos.geti(0) + 40, h_pos.geti(1) + 50,
 		    "rgba: 255 50 50 190", 1);
+		if (attacked.geti("life") < 2) {
+		    let taunt = yeGetRandomElem(ygGet("taunts.strong_atk"))
+		    let txt_o = ywCanvasNewTextByStr(wid, h_pos.geti(0) -10,
+						     h_pos.geti(1) - 20, taunt.s())
+
+		    if (attacked_h.get("taunt")) {
+			ywCanvasRemoveObj(wid, attacked_h.get("taunt"))
+		    }
+		    attacked_h.push(txt_o, "taunt")
+		}
+
 		if (attacked.geti("life") < 0) {
 		    all_units.get(a[3][0]).rm(a[3][1])
+		    ywCanvasRemoveObj(wid, attacked_h.get("taunt"))
 		    ylpcsRemoveCanvas(attacked_h)
 		    ywCanvasRemoveObj(wid, a[4])
 		    a[4] = null;
@@ -423,6 +435,7 @@ function mod_init(mod)
 {
     ygInitWidgetModule(mod, "jrpg-auto", yeCreateFunction("jrpg_auto_init"))
     ygAddModule(Y_MOD_YIRL, mod, "Universal-LPC-spritesheet")
+    ygAddModule(Y_MOD_YIRL, mod, "taunts")
     ygAddModule(Y_MOD_YIRL, mod, "y_move")
     return mod
 }
