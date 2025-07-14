@@ -33,6 +33,12 @@ const weapons = {
     }
 }
 
+const UNIX_POS_ROW = 0
+const UNIX_POS_COLON = 1
+const UNIT_TURN_TIMER = 2
+const UNIT_ENEMY = 3
+const UNIT_DMG_CANVA = 4
+
 /*
  * attack positions:
  * sword: 8-12
@@ -188,44 +194,44 @@ function jrpg_auto_action(wid, eve)
     }
 
     if (attacker.length > 0) {
-	attacker = attacker.filter(function (a) {return a[2] < (atk_time + atk_cooldown)})
+	attacker = attacker.filter(function (a) {return a[UNIT_TURN_TIMER] < (atk_time + atk_cooldown)})
 
 	for (a of attacker) {
-	    let h = wid.get("handlers").get(a[0]).get(a[1])
+	    let h = wid.get("handlers").get(a[UNIX_POS_ROW]).get(a[UNIX_POS_COLON])
 	    if (!h) {
-		if (a[4]) {
-		    ywCanvasRemoveObj(wid, a[4]);
-		    a[4] = null;
+		if (a[UNIT_DMG_CANVA]) {
+		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA]);
+		    a[UNIT_DMG_CANVA] = null;
 		}
-		a[2] += 1000000
+		a[UNIT_TURN_TIMER] += 1000000
 		continue;
 	    }
-	    let who = all_units.get(a[0]).get(a[1])
+	    let who = all_units.get(a[UNIX_POS_ROW]).get(a[UNIX_POS_COLON])
 	    let w = who.get("weapon")
 	    let w_info = weapons[yeGetStringAt(w, "name")]
 
-	    if (a[2] > atk_time) {
-		ylpcsHandlerSetOrigXY(h, good_orig_pos[0], good_orig_pos[1] + (2 * a[0]))
+	    if (a[UNIT_TURN_TIMER] > atk_time) {
+		ylpcsHandlerSetOrigXY(h, good_orig_pos[0], good_orig_pos[1] + (2 * a[UNIX_POS_ROW]))
 		h.setAt("set_oversized_weapon", 0)
-		if (a[4]) {
-		    ywCanvasRemoveObj(wid, a[4]);
-		    a[4] = null;
+		if (a[UNIT_DMG_CANVA]) {
+		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA]);
+		    a[UNIT_DMG_CANVA] = null;
 		}
 	    } else {
 		ylpcsHandlerSetOrigXY(h,
-				      Math.abs(a[2] * w_info["len"] / atk_time),
+				      Math.abs(a[UNIT_TURN_TIMER] * w_info["len"] / atk_time),
 				      w_info["pos"] + (2 * a[0])
 				     )
 		h.setAt("oversize_weapon_y", 1  + (2 * a[0]))
 		h.setAt("set_oversized_weapon", 1)
 	    }
 	    ylpcsHandlerRefresh(h)
-	    if (turn_timer + a[2] >= dmg_time && a[2] < dmg_time) {
+	    if (turn_timer + a[UNIT_TURN_TIMER] >= dmg_time && a[UNIT_TURN_TIMER] < dmg_time) {
 		let attacked = all_units.get(a[3][0]).get(a[3][1])
 
 		if (!attacked) {
 		    add_message(wid, "MISS")
-		    a[2] += turn_timer
+		    a[UNIT_TURN_TIMER] += turn_timer
 		    continue;
 		}
 
@@ -237,7 +243,7 @@ function jrpg_auto_action(wid, eve)
 		attacked.addAt("life", -tot_atk)
 		let attacked_h = wid.get("handlers").get(a[3][0]).get(a[3][1])
 		const h_pos = ylpcsHandlerPos(attacked_h)
-		a[4] = ywCanvasNewTriangleExt(
+		a[UNIT_DMG_CANVA] = ywCanvasNewTriangleExt(
 		    wid, h_pos.geti(0) + 10, h_pos.geti(1) + 10,
 		    h_pos.geti(0) + 20, h_pos.geti(1) + 40,
 		    h_pos.geti(0) + 40, h_pos.geti(1) + 50,
@@ -257,12 +263,12 @@ function jrpg_auto_action(wid, eve)
 		    all_units.get(a[3][0]).rm(a[3][1])
 		    ywCanvasRemoveObj(wid, attacked_h.get("taunt"))
 		    ylpcsRemoveCanvas(attacked_h)
-		    ywCanvasRemoveObj(wid, a[4])
-		    a[4] = null;
+		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA])
+		    a[UNIT_DMG_CANVA] = null;
 		    wid.get("handlers").get(a[3][0]).rm(a[3][1])
 		}
 	    }
-	    a[2] += turn_timer
+	    a[UNIT_TURN_TIMER] += turn_timer
 	}
 	return
     }
@@ -338,8 +344,10 @@ function jrpg_auto_init(wid, map_str)
     yeConvert(wid, YHASH)
     ywSetTurnLengthOverwrite(-1)
     yeCreateString("canvas", wid, "<type>")
-    yeCreateString("rgba: 255 255 255 255", wid, "background")
+    if (!wid.get("background"))
+	yeCreateString("rgba: 255 255 255 255", wid, "background")
     yeCreateFunction(jrpg_auto_action, wid, "action")
+
     let units = yeGet(wid, "units")
 
     if (units == null) {
@@ -367,65 +375,40 @@ function jrpg_auto_init(wid, map_str)
     const good_x_threshold = 40
     const bad_x_threshold = 60
 
-    for (let i = 0; i < 3; ++i) {
-	let guy = yeGet(good_guy, i)
+    for (let j = 0; j < 2; ++j) {
 
-	if (guy) {
-	    yeConvert(guy, YHASH)
-	    guy.setAt("atk-load", 70)
-	    let guy_h = ylpcsCreateHandler(guy, wid)
-	    ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
-	    ylpcsHandlerRefresh(guy_h)
-	    ylpcsHandlerSetPosXY(guy_h, window_width / 2 + good_x_threshold,
-				 window_height / 3 + 110 * i)
-	    yePushAt2(good_handlers, guy_h, i)
+	for (let i = 0; i < 3; ++i) {
+	    let guy = yeGet(good_guy, i + 3 * j)
+
+	    if (guy) {
+		yeConvert(guy, YHASH)
+		guy.setAt("atk-load", 70)
+		let guy_h = ylpcsCreateHandler(guy, wid)
+		ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
+		ylpcsHandlerRefresh(guy_h)
+		ylpcsHandlerSetPosXY(guy_h, window_width / 2 + good_x_threshold + 100 * j,
+				     window_height / 3 + 110 * i)
+		yePushAt2(good_handlers, guy_h, i + 3 * j)
+	    }
 	}
     }
 
-    for (let i = 0; i < 3; ++i) {
-	let guy = yeGet(good_guy, i + 3)
 
-	if (guy) {
-	    yeConvert(guy, YHASH)
-	    guy.setAt("atk-load", 70)
-	    let guy_h = ylpcsCreateHandler(guy, wid)
-	    ylpcsHandlerSetOrigXY(guy_h, good_orig_pos[0], good_orig_pos[1])
-	    ylpcsHandlerRefresh(guy_h)
-	    ylpcsHandlerSetPosXY(guy_h, window_width / 2 + good_x_threshold + 100,
-				 window_height / 3 + 110 * i)
-	    yePushAt2(good_handlers, guy_h, i + 3)
+    for (let j = 0; j < 2; ++j)
+	for (let i = 0; i < 3; ++i) {
+	    let guy = yeGet(bad_guy, i + 3 * j)
+
+	    if (guy) {
+		yeConvert(guy, YHASH)
+		guy.setAt("atk-load", 70)
+		let guy_h = ylpcsCreateHandler(guy, wid)
+		ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
+		ylpcsHandlerRefresh(guy_h)
+		ylpcsHandlerSetPosXY(guy_h, bad_x_threshold + 100 - 100 * j,
+				     window_height / 3 + 110 * i)
+		yePushAt2(bad_handlers, guy_h, i + 3 * j)
+	    }
 	}
-    }
-
-    for (let i = 0; i < 3; ++i) {
-	let guy = yeGet(bad_guy, i)
-
-	if (guy) {
-	    yeConvert(guy, YHASH)
-	    guy.setAt("atk-load", 70)
-	    let guy_h = ylpcsCreateHandler(guy, wid)
-	    ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
-	    ylpcsHandlerRefresh(guy_h)
-	    ylpcsHandlerSetPosXY(guy_h, bad_x_threshold + 100,
-				 window_height / 3 + 110 * i)
-	    yePushAt2(bad_handlers, guy_h, i)
-	}
-    }
-
-    for (let i = 0; i < 3; ++i) {
-	let guy = yeGet(bad_guy, i + 3)
-
-	if (guy) {
-	    yeConvert(guy, YHASH)
-	    guy.setAt("atk-load", 70)
-	    let guy_h = ylpcsCreateHandler(guy, wid)
-	    ylpcsHandlerSetOrigXY(guy_h, bad_orig_pos[0], bad_orig_pos[1])
-	    ylpcsHandlerRefresh(guy_h)
-	    ylpcsHandlerSetPosXY(guy_h, bad_x_threshold,
-				 window_height / 3 + 110 * i)
-	    yePushAt2(bad_handlers, guy_h, i + 3)
-	}
-    }
 
 
     return ret
