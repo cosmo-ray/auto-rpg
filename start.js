@@ -33,8 +33,8 @@ const weapons = {
     }
 }
 
-const UNIX_POS_ROW = 0
-const UNIX_POS_COLON = 1
+const UNIT_ROW = 0
+const UNIT_COLON = 1
 const UNIT_TURN_TIMER = 2
 const UNIT_ENEMY = 3
 const UNIT_DMG_CANVA = 4
@@ -197,7 +197,7 @@ function jrpg_auto_action(wid, eve)
 	attacker = attacker.filter(function (a) {return a[UNIT_TURN_TIMER] < (atk_time + atk_cooldown)})
 
 	for (a of attacker) {
-	    let h = wid.get("handlers").get(a[UNIX_POS_ROW]).get(a[UNIX_POS_COLON])
+	    let h = wid.get("handlers").get(a[UNIT_ROW]).get(a[UNIT_COLON])
 	    if (!h) {
 		if (a[UNIT_DMG_CANVA]) {
 		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA]);
@@ -206,12 +206,12 @@ function jrpg_auto_action(wid, eve)
 		a[UNIT_TURN_TIMER] += 1000000
 		continue;
 	    }
-	    let who = all_units.get(a[UNIX_POS_ROW]).get(a[UNIX_POS_COLON])
+	    let who = all_units.get(a[UNIT_ROW]).get(a[UNIT_COLON])
 	    let w = who.get("weapon")
 	    let w_info = weapons[yeGetStringAt(w, "name")]
 
 	    if (a[UNIT_TURN_TIMER] > atk_time) {
-		ylpcsHandlerSetOrigXY(h, good_orig_pos[0], good_orig_pos[1] + (2 * a[UNIX_POS_ROW]))
+		ylpcsHandlerSetOrigXY(h, good_orig_pos[0], good_orig_pos[1] + (2 * a[UNIT_ROW]))
 		h.setAt("set_oversized_weapon", 0)
 		if (a[UNIT_DMG_CANVA]) {
 		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA]);
@@ -220,14 +220,15 @@ function jrpg_auto_action(wid, eve)
 	    } else {
 		ylpcsHandlerSetOrigXY(h,
 				      Math.abs(a[UNIT_TURN_TIMER] * w_info["len"] / atk_time),
-				      w_info["pos"] + (2 * a[0])
+				      w_info["pos"] + (2 * a[UNIT_ROW])
 				     )
-		h.setAt("oversize_weapon_y", 1  + (2 * a[0]))
+		h.setAt("oversize_weapon_y", 1  + (2 * a[UNIT_ROW]))
 		h.setAt("set_oversized_weapon", 1)
 	    }
 	    ylpcsHandlerRefresh(h)
 	    if (turn_timer + a[UNIT_TURN_TIMER] >= dmg_time && a[UNIT_TURN_TIMER] < dmg_time) {
-		let attacked = all_units.get(a[3][0]).get(a[3][1])
+		let enemy_info = a[UNIT_ENEMY]
+		let attacked = all_units.get(enemy_info[UNIT_ROW]).get(enemy_info[UNIT_COLON])
 
 		if (!attacked) {
 		    add_message(wid, "MISS")
@@ -241,7 +242,7 @@ function jrpg_auto_action(wid, eve)
 		    tot_atk = 1;
 		add_message(wid, yeGetStringAt(who, "name") + " deal " + tot_atk + " dmg to " + yeGetStringAt(attacked, "name") + " with " + yeGetStringAt(w, "name"))
 		attacked.addAt("life", -tot_atk)
-		let attacked_h = wid.get("handlers").get(a[3][0]).get(a[3][1])
+		let attacked_h = wid.get("handlers").get(enemy_info[UNIT_ROW]).get(enemy_info[UNIT_COLON])
 		const h_pos = ylpcsHandlerPos(attacked_h)
 		a[UNIT_DMG_CANVA] = ywCanvasNewTriangleExt(
 		    wid, h_pos.geti(0) + 10, h_pos.geti(1) + 10,
@@ -256,16 +257,16 @@ function jrpg_auto_action(wid, eve)
 		    if (attacked_h.get("taunt")) {
 			ywCanvasRemoveObj(wid, attacked_h.get("taunt"))
 		    }
-		    attacked_h.push(txt_o, "taunt")
+		    attacked_h.setAt("taunt", txt_o)
 		}
 
 		if (attacked.geti("life") < 0) {
-		    all_units.get(a[3][0]).rm(a[3][1])
 		    ywCanvasRemoveObj(wid, attacked_h.get("taunt"))
 		    ylpcsRemoveCanvas(attacked_h)
+		    all_units.get(a[UNIT_ENEMY][UNIT_ROW]).rm(a[UNIT_ENEMY][UNIT_COLON])
 		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA])
 		    a[UNIT_DMG_CANVA] = null;
-		    wid.get("handlers").get(a[3][0]).rm(a[3][1])
+		    wid.get("handlers").get(a[UNIT_ENEMY][UNIT_ROW]).rm(a[UNIT_ENEMY][UNIT_COLON])
 		}
 	    }
 	    a[UNIT_TURN_TIMER] += turn_timer
@@ -311,7 +312,6 @@ function jrpg_auto_action(wid, eve)
 			attacker.push([i, j, 0, enemy])
 			++atk_cnt;
 		    } else {
-			print("ELSE !", j, !units.get(j - 3))
 			if (j > 2 && !units.get(j - 3)) {
 			    move_guy(wid, i, j, j - 3, FRONT)
 			} else if (j == 2 && !units.get(j - 1)) {
