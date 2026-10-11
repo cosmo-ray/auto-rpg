@@ -38,6 +38,7 @@ const UNIT_COLON = 1
 const UNIT_TURN_TIMER = 2
 const UNIT_ENEMY = 3
 const UNIT_DMG_CANVA = 4
+const UNIT_OPP_DMG_CANVA = 5
 
 /*
  * attack positions:
@@ -132,49 +133,60 @@ function move_guy(wid, i, j, to, where)
 
 function find_enemy(units, i, j, weapon)
 {
-    let range = weapon.geti("range")
-    let other_guy_i = 0
+    return find_enemy_skip(units, i, j, weapon.geti("range"), 0)
+}
 
-    if (i == 0)
-	other_guy_i = 1
+function find_enemy_skip(units, i, j, range, skip)
+{
+    let other_guy_i = (i == 0) ? 1 : 0
+    let other_guys = units.get(other_guy_i)
 
-    let u = units.get(i).get(j)
-    let other_guys = units.get(other_guy_i);
     if (range == -1) {
-	for (let idx = 0; idx < 5; ++idx) {
-	    if (other_guys.get(idx))
+	for (let idx = 0; idx < 5; ++idx)
+	    if (other_guys.get(idx) && skip-- <= 0)
 		return [other_guy_i, idx]
-	}
     } else if (range == 0) {
 	// can't attack in back row
 	if (j > 2)
 	    return null;
-	if (other_guys.get(j)) {
+	if (other_guys.get(j) && skip-- <= 0)
 	    return [other_guy_i, j]
-	}
-	if (j - 1 >= 0 && other_guys.get(j - 1)) {
+	if (j - 1 >= 0 && other_guys.get(j - 1) && skip-- <= 0)
 	    return [other_guy_i, j - 1]
-	}
-	if (j + 1 <= 2 && other_guys.get(j + 1)) {
+	if (j + 1 <= 2 && other_guys.get(j + 1) && skip-- <= 0)
 	    return [other_guy_i, j + 1]
-	}
     } else if (range == 1) {
 	// can only attack guy in front of you in backrow
 	if (j > 2) {
-	    if (other_guys.get(j - 3)) {
+	    if (other_guys.get(j - 3) && skip-- <= 0)
 		return [other_guy_i, j - 3]
-	    }
 	    return null;
 	}
-	if (other_guys.get(j + 3)) {
+	if (other_guys.get(j + 3) && skip-- <= 0)
 	    return [other_guy_i, j + 3]
-	}
-	for (let idx = 0; idx < 3; ++idx) {
-	    if (other_guys.get(idx))
+	for (let idx = 0; idx < 3; ++idx)
+	    if (other_guys.get(idx) && skip-- <= 0)
 		return [other_guy_i, idx]
-	}
     }
     return null;
+}
+
+function compute_damage(attacker, defender)
+{
+    let power = attacker.get("weapon").geti("power") +
+        attacker.get("stats").geti("strength")
+    let armor = defender.get("armor")
+    let dmg = power - (armor ? armor.geti("protect") : 0)
+    return (dmg < 1) ? 1 : dmg
+}
+
+function create_dmg_img(wid, pos)
+{
+    return ywCanvasNewTriangleExt(
+        wid, pos.geti(0) + 10, pos.geti(1) + 10,
+        pos.geti(0) + 20, pos.geti(1) + 40,
+        pos.geti(0) + 40, pos.geti(1) + 50,
+        "rgba: 255 50 50 190", 1)
 }
 
 let atk_cnt = 0
@@ -202,6 +214,10 @@ function jrpg_auto_action(wid, eve)
 		if (a[UNIT_DMG_CANVA]) {
 		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA]);
 		    a[UNIT_DMG_CANVA] = null;
+		}
+		if (a[UNIT_OPP_DMG_CANVA]) {
+		    ywCanvasRemoveObj(wid, a[UNIT_OPP_DMG_CANVA]);
+		    a[UNIT_OPP_DMG_CANVA] = null;
 		}
 		a[UNIT_TURN_TIMER] += 1000000
 		continue;
@@ -236,19 +252,12 @@ function jrpg_auto_action(wid, eve)
 		    continue;
 		}
 
-		let atk_power = w.geti("power") + who.get("stats").geti("strength")
-		let tot_atk = atk_power - attacked.get("armor").geti("protect")
-		if (tot_atk < 1)
-		    tot_atk = 1;
+		let tot_atk = compute_damage(who, attacked)
 		add_message(wid, yeGetStringAt(who, "name") + " deal " + tot_atk + " dmg to " + yeGetStringAt(attacked, "name") + " with " + yeGetStringAt(w, "name"))
 		attacked.addAt("life", -tot_atk)
 		let attacked_h = wid.get("handlers").get(enemy_info[UNIT_ROW]).get(enemy_info[UNIT_COLON])
 		const h_pos = ylpcsHandlerPos(attacked_h)
-		a[UNIT_DMG_CANVA] = ywCanvasNewTriangleExt(
-		    wid, h_pos.geti(0) + 10, h_pos.geti(1) + 10,
-		    h_pos.geti(0) + 20, h_pos.geti(1) + 40,
-		    h_pos.geti(0) + 40, h_pos.geti(1) + 50,
-		    "rgba: 255 50 50 190", 1);
+		a[UNIT_DMG_CANVA] = create_dmg_img(wid, h_pos)
 		if (attacked.geti("life") < 2) {
 		    let taunt = yeGetRandomElem(ygGet("taunts.strong_atk"))
 		    let txt_o = ywCanvasNewTextByStr(wid, h_pos.geti(0) -10,
@@ -267,6 +276,32 @@ function jrpg_auto_action(wid, eve)
 		    ywCanvasRemoveObj(wid, a[UNIT_DMG_CANVA])
 		    a[UNIT_DMG_CANVA] = null;
 		    wid.get("handlers").get(a[UNIT_ENEMY][UNIT_ROW]).rm(a[UNIT_ENEMY][UNIT_COLON])
+		}
+		/* point-blank: every enemy in melee reach strikes back */
+		if (w.geti("melee-penalty") > 0) {
+		    for (let n = 0; who.geti("life") >= 0; ++n) {
+			let foe = find_enemy_skip(all_units, a[UNIT_ROW], a[UNIT_COLON], 0, n)
+			if (!foe)
+			    break
+			let opp = all_units.get(foe[UNIT_ROW]).get(foe[UNIT_COLON])
+			let dmg = compute_damage(opp, who)
+			add_message(wid, yeGetStringAt(opp, "name") +
+				    " deals " + dmg + " to " +
+				    yeGetStringAt(who, "name") +
+				    " with an opportunity attack")
+			who.addAt("life", -dmg)
+			let who_pos = ylpcsHandlerPos(h)
+			if (a[UNIT_OPP_DMG_CANVA]) {
+			    ywCanvasRemoveObj(wid, a[UNIT_OPP_DMG_CANVA])
+			    a[UNIT_OPP_DMG_CANVA] = null
+			}
+			a[UNIT_OPP_DMG_CANVA] = create_dmg_img(wid, who_pos)
+			if (who.geti("life") < 0) {
+			    ylpcsRemoveCanvas(h)
+			    all_units.get(a[UNIT_ROW]).rm(a[UNIT_COLON])
+			    wid.get("handlers").get(a[UNIT_ROW]).rm(a[UNIT_COLON])
+			}
+		    }
 		}
 	    }
 	    a[UNIT_TURN_TIMER] += turn_timer

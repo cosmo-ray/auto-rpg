@@ -45,7 +45,8 @@
 		"power": 2,
 		"name": "bow",
 		"range": -1,
-		"maniability": 4
+		"maniability": 4,
+		"melee-penalty": 1
 	    },
 	    "armor": {
 		"heavy": 1,
