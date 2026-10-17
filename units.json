@@ -11,7 +11,7 @@
 		"charm": 1,
 		"agility": 3
 	    },
-	    "weapon": {
+	    "primary_weapon": {
 		"power": 3,
 		"name": "longsword",
 		"range": 0,
@@ -41,7 +41,7 @@
 		"charm": 3,
 		"agility": 4
 	    },
-	    "weapon": {
+	    "primary_weapon": {
 		"power": 2,
 		"name": "bow",
 		"range": -1,
@@ -70,7 +70,7 @@
 	    "max_life": 10,
 	    "type": "tanned",
 	    "usable_items": {
-		"trowing spear": 3,
+		"trowing spear": 3
 	    },
 	    "stats": {
 		"strength": 3,
@@ -81,7 +81,7 @@
 		"heavy": 1,
 		"protect": 3
 	    },
-	    "weapon": {
+	    "primary_weapon": {
 		"power": 2,
 		"range": 1,
 		"name": "spear",
@@ -114,7 +114,7 @@
 		"heavy": 0,
 		"protect": 1
 	    },
-	    "weapon": {
+	    "primary_weapon": {
 		"power": 3,
 		"name": "longsword",
 		"range": 0,
@@ -141,7 +141,7 @@
 		"heavy": 0,
 		"protect": 1
 	    },
-	    "weapon": {
+	    "primary_weapon": {
 		"power": 3,
 		"name": "longsword",
 		"range": 0,

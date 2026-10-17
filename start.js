@@ -1,4 +1,5 @@
 
+
 const good_orig_pos = [0, 9]
 const bad_orig_pos = [0, 11]
 
@@ -30,6 +31,10 @@ const weapons = {
     "steel spear": {
 	"len": 8,
 	"pos": 5
+    },
+    "dagger": {
+	"len": 6,
+	"pos": 13
     }
 }
 
@@ -39,6 +44,7 @@ const UNIT_TURN_TIMER = 2
 const UNIT_ENEMY = 3
 const UNIT_DMG_CANVA = 4
 const UNIT_OPP_DMG_CANVA = 5
+const UNIT_WEAPON = 6
 
 /*
  * attack positions:
@@ -129,6 +135,7 @@ function move_guy(wid, i, j, to, where)
     units.rm(j)
     handlers.rm(j)
     add_message(wid, "move " + yeGetString(u.get("name")) + " to " + str_where)
+    sync_all_weapon_sprites(wid)
 }
 
 function find_enemy(units, i, j, weapon)
@@ -171,13 +178,61 @@ function find_enemy_skip(units, i, j, range, skip)
     return null;
 }
 
-function compute_damage(attacker, defender)
+function compute_damage(attacker, defender, weapon)
 {
-    let power = attacker.get("weapon").geti("power") +
+    let power = weapon.geti("power") +
         attacker.get("stats").geti("strength")
     let armor = defender.get("armor")
     let dmg = power - (armor ? armor.geti("protect") : 0)
     return (dmg < 1) ? 1 : dmg
+}
+
+function pick_attack(u, all_units, i, j)
+{
+    let w = u.get("primary_weapon")
+    if (find_enemy(all_units, i, j, w))
+	return w
+    let w2 = u.get("secondary_weapon")
+    if (w2 && find_enemy(all_units, i, j, w2))
+	return w2
+    return null
+}
+
+function apply_weapon_sprite(wid, u, h, picked)
+{
+    if (!h || !h.get("char"))
+	return
+    if (!h.get("base_sprite_weapon"))
+	h.setAt("base_sprite_weapon", u.gets("sprite_weapon") || "")
+    let sec = u.get("secondary_weapon")
+    let is_sec = picked && sec &&
+	yeGetStringAt(picked, "name") == yeGetStringAt(sec, "name")
+    let want = (is_sec && u.get("sprite_weapon2")) ?
+	u.gets("sprite_weapon2") : h.gets("base_sprite_weapon")
+    if (!want)
+	return
+    let ch = h.get("char")
+    if (ch.gets("sprite_weapon") == want)
+	return
+    ch.setAt("sprite_weapon", want)
+    u.setAt("sprite_weapon", want)
+    ylpcsHandlerReload(h)
+    if (wid.get("debug_weapon_sprite"))
+	print("SPRITE " + yeGetString(u.get("name")) + " " + want + "\n")
+}
+
+function sync_all_weapon_sprites(wid)
+{
+    let all_units = wid.get("units")
+    let handlers = wid.get("handlers")
+    if (!all_units || !handlers)
+	return
+    all_units.forEachNonNull(function (units, i) {
+	units.forEachNonNull(function (u, j) {
+	    apply_weapon_sprite(wid, u, handlers.get(i).get(j),
+				pick_attack(u, all_units, i, j))
+	})
+    })
 }
 
 function create_dmg_img(wid, pos)
@@ -223,7 +278,7 @@ function jrpg_auto_action(wid, eve)
 		continue;
 	    }
 	    let who = all_units.get(a[UNIT_ROW]).get(a[UNIT_COLON])
-	    let w = who.get("weapon")
+	    let w = a[UNIT_WEAPON]
 	    let w_info = weapons[yeGetStringAt(w, "name")]
 
 	    if (a[UNIT_TURN_TIMER] > atk_time) {
@@ -252,7 +307,7 @@ function jrpg_auto_action(wid, eve)
 		    continue;
 		}
 
-		let tot_atk = compute_damage(who, attacked)
+		let tot_atk = compute_damage(who, attacked, w)
 		add_message(wid, yeGetStringAt(who, "name") + " deal " + tot_atk + " dmg to " + yeGetStringAt(attacked, "name") + " with " + yeGetStringAt(w, "name"))
 		attacked.addAt("life", -tot_atk)
 		let attacked_h = wid.get("handlers").get(enemy_info[UNIT_ROW]).get(enemy_info[UNIT_COLON])
@@ -284,7 +339,7 @@ function jrpg_auto_action(wid, eve)
 			if (!foe)
 			    break
 			let opp = all_units.get(foe[UNIT_ROW]).get(foe[UNIT_COLON])
-			let dmg = compute_damage(opp, who)
+			let dmg = compute_damage(opp, who, opp.get("primary_weapon"))
 			add_message(wid, yeGetStringAt(opp, "name") +
 				    " deals " + dmg + " to " +
 				    yeGetStringAt(who, "name") +
@@ -328,7 +383,7 @@ function jrpg_auto_action(wid, eve)
 	remove_bars(wid)
 	all_units.forEachNonNull(function (units, i) {
 	    units.forEachNonNull(function (u, j) {
-		let weapon = u.get("weapon")
+		let weapon = u.get("primary_weapon")
 		let armor = u.get("armor")
 		let stats = u.get("stats")
 		let to_add = 4 + stats.geti("agility") * 2 -
@@ -339,12 +394,15 @@ function jrpg_auto_action(wid, eve)
 		u.addAt("atk-load", to_add)
 
 		let h = wid.get("handlers").get(i).get(j)
+		let picked = pick_attack(u, all_units, i, j)
+
+		apply_weapon_sprite(wid, u, h, picked)
 		let h_pos = ylpcsHandePos(h)
 
 		if (u.geti("atk-load") >= 100) {
-		    let enemy = find_enemy(all_units, i, j, weapon)
+		    let enemy = picked ? find_enemy(all_units, i, j, picked) : null
 		    if (enemy) {
-			attacker.push([i, j, 0, enemy])
+			attacker.push([i, j, 0, enemy, null, null, picked])
 			++atk_cnt;
 		    } else {
 			if (j > 2 && !units.get(j - 3)) {
@@ -445,6 +503,7 @@ function jrpg_auto_init(wid, map_str)
 	    }
 	}
 
+    sync_all_weapon_sprites(wid)
 
     return ret
 }
