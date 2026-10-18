@@ -54,6 +54,7 @@ const UNIT_WEAPON = 6
 
 let turn_countdown = 0
 let attacker = []
+let effect_imgs = []
 let atk_time = 1000000
 let atk_cooldown = 100000
 let dmg_time = 600000
@@ -244,6 +245,88 @@ function create_dmg_img(wid, pos)
         "rgba: 255 50 50 190", 1)
 }
 
+function create_heal_img(wid, pos)
+{
+    return ywCanvasNewRectangleExt(
+        wid, pos.geti(0) + 15, pos.geti(1) + 5,
+        20, 20, "rgba: 50 255 50 190", 1)
+}
+
+function find_target(all_units, team, wounded_only)
+{
+    let targets = []
+
+    all_units.get(team).forEachNonNull(function (u, idx) {
+	if (u.geti("life") >= 0 &&
+	    (!wounded_only || u.geti("life") < u.geti("max_life")))
+	    targets.push(idx)
+    })
+    if (targets.length == 0)
+	return null
+    return [team, targets[yuiRand() % targets.length]]
+}
+
+const action_target_fns = {
+    "wounded_ally": function (au, i) { return find_target(au, i, true) },
+    "enemy": function (au, i) { return find_target(au, 1 - i, false) }
+}
+
+function fill_msg(tmpl, vars)
+{
+    tmpl = tmpl || "{user} use {name}"
+    for (let k in vars)
+	tmpl = tmpl.split("{" + k + "}").join(String(vars[k]))
+    return tmpl
+}
+
+function apply_effect(wid, all_units, u, act, target, amount_fn, mk_img)
+{
+    let target_u = all_units.get(target[0]).get(target[1])
+    let amount = amount_fn(target_u)
+
+    add_message(wid, fill_msg(act.gets("msg"), {
+	"user": u.gets("name"),
+	"target": target_u.gets("name"),
+	"amount": amount,
+	"name": act.gets("name")
+    }))
+    let h = wid.get("handlers").get(target[0]).get(target[1])
+    if (h)
+	effect_imgs.push([mk_img(wid, ylpcsHandlerPos(h)), 0])
+    return target_u
+}
+
+function effect_heal(wid, all_units, u, act, target)
+{
+    apply_effect(wid, all_units, u, act, target, function (t) {
+	let amount = Math.min(act.geti("power"), t.geti("max_life") - t.geti("life"))
+	t.addAt("life", amount)
+	return amount
+    }, create_heal_img)
+}
+
+function effect_damage(wid, all_units, u, act, target)
+{
+    let target_u = apply_effect(wid, all_units, u, act, target, function (t) {
+	let dmg = compute_damage(u, t, act)
+	t.addAt("life", -dmg)
+	return dmg
+    }, create_dmg_img)
+
+    if (target_u.geti("life") < 0) {
+	let h = wid.get("handlers").get(target[0]).get(target[1])
+	if (h)
+	    ylpcsRemoveCanvas(h)
+	all_units.get(target[0]).rm(target[1])
+	wid.get("handlers").get(target[0]).rm(target[1])
+    }
+}
+
+const action_effect_fns = {
+    "heal": effect_heal,
+    "damage": effect_damage
+}
+
 let atk_cnt = 0
 
 function jrpg_auto_action(wid, eve)
@@ -259,6 +342,14 @@ function jrpg_auto_action(wid, eve)
 	print("battle LOSE\n");
 	ygCallFuncOrQuit(wid, "lose");
     }
+
+    effect_imgs = effect_imgs.filter(function (e) {
+	e[1] += turn_timer
+	let keep = e[1] < dmg_time
+	if (!keep)
+	    ywCanvasRemoveObj(wid, e[0])
+	return keep
+    })
 
     if (attacker.length > 0) {
 	attacker = attacker.filter(function (a) {return a[UNIT_TURN_TIMER] < (atk_time + atk_cooldown)})
@@ -401,10 +492,20 @@ function jrpg_auto_action(wid, eve)
 
 		if (u.geti("atk-load") >= 100) {
 		    let enemy = picked ? find_enemy(all_units, i, j, picked) : null
-		    if (enemy) {
-			attacker.push([i, j, 0, enemy, null, null, picked])
-			++atk_cnt;
-		    } else {
+		    let usable = enemy ? [{effect: "attack", target: enemy}] : []
+
+		    u.get("actions")?.forEachNonNull(function (act) {
+			if (act.geti("once") && u.geti("used:" + act.gets("name")))
+			    return
+			let tgt_fn = action_target_fns[act.gets("target")]
+			let tgt = tgt_fn ? tgt_fn(all_units, i) : null
+			if (tgt)
+			    usable.push({act: act, target: tgt,
+					 effect: act.gets("effect") || act.gets("name")})
+		    })
+		    let chosen = usable.length ? usable[yuiRand() % usable.length] : null
+
+		    if (!chosen) {
 			if (j > 2 && !units.get(j - 3)) {
 			    move_guy(wid, i, j, j - 3, FRONT)
 			} else if (j == 2 && !units.get(j - 1)) {
@@ -415,6 +516,17 @@ function jrpg_auto_action(wid, eve)
 			    add_message(wid, yeGetString(u.get("name")) + " armed with " +
 					yeGetStringAt(weapon, "name") + " can't find a target")
 			}
+		    } else if (chosen.effect == "attack") {
+			attacker.push([i, j, 0, chosen.target, null, null, picked])
+			++atk_cnt;
+		    } else {
+			// TODO: animate the npc doing the action (javelin throw
+			// animation...) instead of an instant effect with a floating img
+			let fn = action_effect_fns[chosen.effect]
+			if (fn)
+			    fn(wid, all_units, u, chosen.act, chosen.target)
+			if (chosen.act.geti("once"))
+			    u.setAt("used:" + chosen.act.gets("name"), 1)
 		    }
 		    h_pos = ylpcsHandePos(h)
 		    u.addAt("atk-load", -100)
