@@ -53,8 +53,10 @@ const UNIT_WEAPON = 6
  */
 
 let turn_countdown = 0
+let battle_time = 0
 let attacker = []
 let effect_imgs = []
+const buff_time = 5000000
 let atk_time = 1000000
 let atk_cooldown = 100000
 let dmg_time = 600000
@@ -179,10 +181,32 @@ function find_enemy_skip(units, i, j, range, skip)
     return null;
 }
 
+function get_buff_val(u, stat)
+{
+    if (!u)
+	return 0
+
+    let buffs = u.get("buffs")
+    if (buffs) {
+	buffs = buffs.filter(function (b) { return b.geti("end") > battle_time })
+	if (buffs.get(stat))
+	    return buffs.get(stat).geti("amount")
+    }
+    return 0;
+}
+
+function get_effective_stat(u, stat)
+{
+    if (!u)
+	return 0
+    let base = u.get("stats").geti(stat) || 0
+    return base + get_buff_val(u, stat)
+}
+
 function compute_damage(attacker, defender, weapon)
 {
     let power = weapon.geti("power") +
-        attacker.get("stats").geti("strength")
+        get_effective_stat(attacker, "strength")
     let armor = defender.get("armor")
     let dmg = power - (armor ? armor.geti("protect") : 0)
     return (dmg < 1) ? 1 : dmg
@@ -218,8 +242,6 @@ function apply_weapon_sprite(wid, u, h, picked)
     ch.setAt("sprite_weapon", want)
     u.setAt("sprite_weapon", want)
     ylpcsHandlerReload(h)
-    if (wid.get("debug_weapon_sprite"))
-	print("SPRITE " + yeGetString(u.get("name")) + " " + want + "\n")
 }
 
 function sync_all_weapon_sprites(wid)
@@ -252,6 +274,13 @@ function create_heal_img(wid, pos)
         20, 20, "rgba: 50 255 50 190", 1)
 }
 
+function create_buff_img(wid, pos)
+{
+    return ywCanvasNewRectangleExt(
+        wid, pos.geti(0) + 15, pos.geti(1) + 5,
+        20, 20, "rgba: 50 150 255 190", 1)
+}
+
 function find_target(all_units, team, wounded_only)
 {
     let targets = []
@@ -266,9 +295,18 @@ function find_target(all_units, team, wounded_only)
     return [team, targets[yuiRand() % targets.length]]
 }
 
+function find_target_self(all_units, i, j)
+{
+    if (all_units.get(i).get(j) && all_units.get(i).get(j).geti("life") >= 0)
+	return [i, j]
+    return null
+}
+
 const action_target_fns = {
     "wounded_ally": function (au, i) { return find_target(au, i, true) },
-    "enemy": function (au, i) { return find_target(au, 1 - i, false) }
+    "enemy": function (au, i) { return find_target(au, 1 - i, false) },
+    "self": function (au, i, j) { return find_target_self(au, i, j) },
+    "ally": function (au, i) { return find_target(au, i, false) }
 }
 
 function fill_msg(tmpl, vars)
@@ -322,9 +360,47 @@ function effect_damage(wid, all_units, u, act, target)
     }
 }
 
+function effect_buff(wid, all_units, u, act, target)
+{
+    let target_u = all_units.get(target[0]).get(target[1])
+    let amount = act.geti("power") || 1
+    let duration = act.geti("duration") || buff_time
+    let now = battle_time
+    let stats = act.get("stats")
+
+    if (!target_u.get("buffs")) {
+	yeCreateArray(target_u, "buffs")
+    }
+    if (!stats) {
+	stats = yeCreateArray()
+	stats.push("strength")
+	stats.push("agility")
+	stats.push("charm")
+    }
+    let buffs = target_u.get("buffs")
+    stats.forEach(function (s, _) {
+	let st = yeGetString(s)
+	if (!st) {
+	    return
+	}
+	buffs.setAt(st, {amount: buffs.geti(st) + amount,
+			 end: now + duration, duration: duration})
+    })
+    add_message(wid, fill_msg(act.gets("msg"), {
+	"user": u.gets("name"),
+	"target": target_u.gets("name"),
+	"amount": amount,
+	"name": act.gets("name")
+    }))
+    let h = wid.get("handlers").get(target[0]).get(target[1])
+    if (h)
+	effect_imgs.push([create_buff_img(wid, ylpcsHandlerPos(h)), 0])
+}
+
 const action_effect_fns = {
     "heal": effect_heal,
-    "damage": effect_damage
+    "damage": effect_damage,
+    "buff": effect_buff
 }
 
 let atk_cnt = 0
@@ -333,15 +409,21 @@ function jrpg_auto_action(wid, eve)
 {
     let all_units = yeGet(wid, "units")
     let turn_timer = ywidGetTurnTimer()
+    battle_time += turn_timer
     const handler_h = ygGet("lpcs.y_threshold").toInt()
 
-    if (all_units.get(1).len() == 0) {
-	print("battle WIN\n");
-	ygCallFuncOrQuit(wid, "win");
-    } else if (all_units.get(0).len() == 0) {
-	print("battle LOSE\n");
-	ygCallFuncOrQuit(wid, "lose");
+    function check_end(val, str) {
+	if (all_units.get(val).len() == 0) {
+	    all_units.forEachNonNull(function (units, i) {
+		units.forEachNonNull(function (u, j) {
+		    u.get("buffs").clear()
+		})
+	    })
+	    ygCallFuncOrQuit(wid, "win");
+	}
     }
+    check_end(0, "win")
+    check_end(1, "lose")
 
     effect_imgs = effect_imgs.filter(function (e) {
 	e[1] += turn_timer
@@ -349,6 +431,14 @@ function jrpg_auto_action(wid, eve)
 	if (!keep)
 	    ywCanvasRemoveObj(wid, e[0])
 	return keep
+    })
+    let now = turn_countdown + atk_time
+    all_units.forEachNonNull(function (units, i) {
+	units.forEachNonNull(function (u, j) {
+	    if (u.get("buffs") && u.get("buffs").len() > 0) {
+		u.setAt("buffs", u.get("buffs").filter(function (b) { return b.geti("end") > battle_time }))
+	    }
+	})
     })
 
     if (attacker.length > 0) {
@@ -399,7 +489,14 @@ function jrpg_auto_action(wid, eve)
 		}
 
 		let tot_atk = compute_damage(who, attacked, w)
-		add_message(wid, yeGetStringAt(who, "name") + " deal " + tot_atk + " dmg to " + yeGetStringAt(attacked, "name") + " with " + yeGetStringAt(w, "name"))
+		let wb = ""
+		let buffs = who.get("buffs")
+		if (buffs) {
+		    who.setAt("buffs", buffs.filter(function (b) { return b.geti("end") > battle_time }))
+		}
+		add_message(wid, who.gets("name") + wb + " deal " + tot_atk +
+			    " dmg to " + yeGetStringAt(attacked, "name") + " with " + yeGetStringAt(w, "name") +
+			    "bonus + " + get_buff_val(who, "strength"))
 		attacked.addAt("life", -tot_atk)
 		let attacked_h = wid.get("handlers").get(enemy_info[UNIT_ROW]).get(enemy_info[UNIT_COLON])
 		const h_pos = ylpcsHandlerPos(attacked_h)
@@ -431,7 +528,8 @@ function jrpg_auto_action(wid, eve)
 			    break
 			let opp = all_units.get(foe[UNIT_ROW]).get(foe[UNIT_COLON])
 			let dmg = compute_damage(opp, who, opp.get("primary_weapon"))
-			add_message(wid, yeGetStringAt(opp, "name") +
+			let ob = ""
+			add_message(wid, opp.gets("name") + ob +
 				    " deals " + dmg + " to " +
 				    yeGetStringAt(who, "name") +
 				    " with an opportunity attack")
@@ -477,7 +575,7 @@ function jrpg_auto_action(wid, eve)
 		let weapon = u.get("primary_weapon")
 		let armor = u.get("armor")
 		let stats = u.get("stats")
-		let to_add = 4 + stats.geti("agility") * 2 -
+		let to_add = 4 + get_effective_stat(u, "agility") * 2 -
 		    weapon.geti("maniability") - armor?.geti("heavy")
 
 		if (to_add < 1)
@@ -498,7 +596,7 @@ function jrpg_auto_action(wid, eve)
 			if (act.geti("once") && u.geti("used:" + act.gets("name")))
 			    return
 			let tgt_fn = action_target_fns[act.gets("target")]
-			let tgt = tgt_fn ? tgt_fn(all_units, i) : null
+			let tgt = tgt_fn ? tgt_fn(all_units, i, j) : null
 			if (tgt)
 			    usable.push({act: act, target: tgt,
 					 effect: act.gets("effect") || act.gets("name")})
@@ -522,10 +620,11 @@ function jrpg_auto_action(wid, eve)
 		    } else {
 			// TODO: animate the npc doing the action (javelin throw
 			// animation...) instead of an instant effect with a floating img
+			
 			let fn = action_effect_fns[chosen.effect]
 			if (fn)
 			    fn(wid, all_units, u, chosen.act, chosen.target)
-			if (chosen.act.geti("once"))
+			if (chosen.act && chosen.act.geti("once"))
 			    u.setAt("used:" + chosen.act.gets("name"), 1)
 		    }
 		    h_pos = ylpcsHandePos(h)
@@ -538,7 +637,22 @@ function jrpg_auto_action(wid, eve)
 			  u.geti("life") * 100 / u.geti("max_life"),
 			  "rgba: 230 100 100 255")
 
-		//yePrint(u.get("atk-load"))
+		let buffs = u.get("buffs")
+		if (buffs) {
+		    buffs = buffs.filter(function (b) { return b.geti("end") > battle_time })
+		    if (buffs.len() > 0) {
+			let bb = buffs.get(0)
+			let bp = (bb.geti("end") - battle_time) * 100 / (bb.geti("duration") || buff_time)
+
+			if (bp < 0) bp = 0
+			if (bp > 100) bp = 100
+			print_bar(wid, h_pos.geti("x"), h_pos.geti("y") - 14, bp,
+				  "rgba: 80 160 255 255")
+		    }
+		    u.setAt("buffs", buffs)
+		}
+
+
 	    })
 	})
     }
@@ -551,6 +665,15 @@ function jrpg_auto_init(wid, map_str)
     yeCreateString("canvas", wid, "<type>")
     if (!wid.get("background"))
 	yeCreateString("rgba: 255 255 255 255", wid, "background")
+    battle_time = 0
+    let all_units = yeGet(wid, "units")
+
+    if (all_units)
+	all_units.forEachNonNull(function (units, i) {
+	    units.forEachNonNull(function (u, j) {
+		yeCreateArray(u, "buffs")
+	    })
+	})
     yeCreateFunction(jrpg_auto_action, wid, "action")
 
     let units = yeGet(wid, "units")
